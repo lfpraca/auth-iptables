@@ -33,9 +33,9 @@ This is based on the Oracle Cloud Infrastructure's Ubuntu Server default rules f
 2. Install postgresql and create the database and table structure
 #+BEGIN_SRC sh
 sudo su -c "psql" - postgres
-CREATE ROLE auth-iptables WITH LOGIN PASSWORD 'auth-iptables'; # Please use a better password than in this example, the username can be changed to anything else
-CREATE DATABASE auth-iptables WITH OWNER auth-iptables TEMPLATE template0 ENCODING UTF8 LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8';
-\c auth-iptables
+CREATE ROLE auth_iptables WITH LOGIN PASSWORD 'auth-iptables'; # Please use a better password than in this example, the username can be changed to anything else
+CREATE DATABASE auth_iptables WITH OWNER auth_iptables TEMPLATE template0 ENCODING UTF8 LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8';
+\c auth_iptables
 CREATE TABLE auth ("key" varchar(64) NOT NULL, ip_addr varchar(45) NOT NULL, CONSTRAINT auth_pkey PRIMARY KEY ("key")); # Can be any size, as long as ip_addr can fit IPv4 addresses
 #+END_SRC
 
