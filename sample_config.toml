@@ -1,0 +1,7 @@
+[database]
+url = "postgresql://[USERNAME]:[PASSWORD]@[HOST]/[DB]"
+
+[server]
+port = 8080
+dest_port = 3000
+final_reject = false
