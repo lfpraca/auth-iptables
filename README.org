@@ -51,11 +51,14 @@ cargo build --release
 #+END_SRC
 
 5. Copy the compiled binary from auth-iptables/target/release to more suitable location, such as /usr/bin or other folder on the system's path.
+#+BEGIN_SRC sh
+sudo cp target/release/auth-iptables /usr/bin/
+#+END_SRC
 
 6. Copy auth-iptables/src/sample_config.toml to /etc/auth-iptables/config.toml
 #+BEGIN_SRC sh
 sudo mkdir --parents /etc/auth-iptables
-sudo cp src/sample_config.toml /etc/auth-iptables/config.toml
+sudo cp sample_config.toml /etc/auth-iptables/config.toml
 #+END_SRC
 
 7. Edit the config file as needed
