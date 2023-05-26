@@ -1,0 +1,131 @@
+#+title: Readme
+#+author: LFPraca
+
+* Function
+
+auth-iptables, upon receiving a request with a key in the URL parameters, authenticates the key in a postgresql database, which also stores the previous allowed IP for that key, deletes the rule for the old IP, if exists and creates a rule to allow the new IP (got from the request source).
+
+This can also work with Oracle Cloud Infrastrucure's Ubuntu Server default iptables configuration by moving the final reject statement to the end of the rules list (disabled by default).
+
+* Configuration
+
+** database
+
+Section for database configuration, contains one String key: url. Replace the placeholder values with your database credentials.
+
+** server
+
+Section for general server configuration:
+
+- port: port on which the auth-iptables service will run on.
+
+- dest_port: the port for which the iptable rules will be altered.
+To prevent blocking remote access to the server, port 22 has a hard-coded block, and the service will not run if set to this port.
+If absolutely necessary, this verification can be easily removed from main.rs before compiling.
+
+- final_reject: if set to true, will move the final reject line for iptables INPUT to allow the previously added rules to be actually enabled.
+This is based on the Oracle Cloud Infrastructure's Ubuntu Server default rules for iptables, and may require changes in services.rs if a similar, but different rule is present.
+
+* Installation
+
+1. Install cargo for compiling the source code. For further instructions refer to your distro's documentation or https://doc.rust-lang.org/cargo/getting-started/installation.html
+
+2. Install postgresql and create the database and table structure
+#+BEGIN_SRC sh
+sudo su -c "psql" - postgres
+CREATE ROLE auth-iptables WITH LOGIN PASSWORD 'auth-iptables'; # Please use a better password than in this example, the username can be changed to anything else
+CREATE DATABASE auth-iptables WITH OWNER auth-iptables TEMPLATE template0 ENCODING UTF8 LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8';
+\c auth-iptables
+CREATE TABLE auth ("key" varchar(64) NOT NULL, ip_addr varchar(45) NOT NULL, CONSTRAINT auth_pkey PRIMARY KEY ("key")); # Can be any size, as long as ip_addr can fit IPv4 addresses
+#+END_SRC
+
+3. Clone the repository:
+#+BEGIN_SRC sh
+git clone https://github.com/lfpraca/auth-iptables.git
+cd auth-iptables
+#+END_SRC
+
+4. Compile the source code
+#+BEGIN_SRC sh
+cargo build --release
+#+END_SRC
+
+5. Copy the compiled binary from auth-iptables/target/release to more suitable location, such as /usr/bin or other folder on the system's path.
+
+6. Copy auth-iptables/src/sample_config.toml to /etc/auth-iptables/config.toml
+#+BEGIN_SRC sh
+sudo mkdir --parents /etc/auth-iptables
+sudo cp src/sample_config.toml /etc/auth-iptables/config.toml
+#+END_SRC
+
+7. Edit the config file as needed
+
+* Running as a systemd service
+
+** Setting up the user
+
+1. Create the user
+#+BEGIN_SRC sh
+sudo useradd --shell=/usr/sbin/nologin --no-create-home auth-iptables
+#+END_SRC
+
+2. Open sudo configuration
+#+BEGIN_SRC sh
+sudo visudo
+#+END_SRC
+
+3. Add the following line to allow the user to use iptables with sudo
+#+BEGIN_SRC
+auth-iptables ALL=(ALL) NOPASSWD: /usr/sbin/iptables
+#+END_SRC
+
+For safety reasons, it is recommended that there be no password set for the user, that way, the auth-iptables user cannot use any other command, as there is no password to be specified for sudo
+
+** Setting up the service
+
+1. Create /etc/systemd/system/auth-iptables.service
+2. Paste the following contents:
+#+BEGIN_SRC ini
+[Unit]
+Description=auth-iptables
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/auth-iptables # Replace with absolute path, if at a different location
+Restart=always
+User=auth-iptables
+
+[Install]
+WantedBy=multi-user.target
+#+END_SRC
+
+3. Reload systemd
+#+BEGIN_SRC sh
+systemctl daemon-reload
+#+END_SRC
+
+4. Start the service
+#+BEGIN_SRC sh
+systemctl start auth-iptables
+#+END_SRC
+
+5. To enable on boot, run
+#+BEGIN_SRC sh
+systemctl enable auth-iptables
+#+END_SRC
+
+* Administration
+
+To add a new key, run:
+#+BEGIN_SRC sql
+INSERT INTO public.auth ("key", ip_addr) VALUES('your_key', '0.0.0.0');
+#+END_SRC
+Replace your_key with a long string, the initial IP can be 0.0.0.0 or anything else as it will be replaced upon first use
+
+After this, the client computer can make a get request such as
+#+BEGIN_SRC sh
+curl [URL]/your_key
+#+END_SRC
+
+Where url is the the url the service is listening on. It is recommended for the service to be run behind a reverse proxy, such as nginx
