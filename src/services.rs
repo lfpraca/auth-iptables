@@ -2,6 +2,7 @@ use actix_web::{get, web::{self, Data}, HttpResponse, HttpRequest, Responder};
 use sqlx::{self, FromRow};
 use crate::AppState;
 use std::process::{Command, Stdio};
+use std::net::Ipv4Addr;
 
 #[derive(FromRow)]
 struct UserIp {
@@ -12,12 +13,14 @@ struct UserIp {
 async fn update_ip(state: Data<AppState>, path: web::Path<String>, req: HttpRequest) -> impl Responder {
     let key = path.into_inner();
 
-    let new_ip = match req.peer_addr()
-    .filter(|addr| addr.is_ipv4())
-    .map(|addr| addr.ip().to_string()) {
-        Some(ip) => ip,
-        None => return HttpResponse::BadRequest().body("Client IP must be IPv4, contact the administrator if this needs to be changed\n"),
+    let new_ip = match req.connection_info().realip_remote_addr() {
+        Some(ip) => ip.to_string(),
+        None => return HttpResponse::InternalServerError().body("Error getting request IP address\n"),
     };
+    
+    if new_ip.parse::<Ipv4Addr>().is_err() {
+        return HttpResponse::BadRequest().body("Client IP must be IPv4, contact the administrator if this needs to be changed\n");
+    }
 
     let old_ip: String = match sqlx::query_as::<_, UserIp>("SELECT ip_addr FROM auth WHERE \"key\" = $1")
     .bind(&key)
