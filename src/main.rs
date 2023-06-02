@@ -1,9 +1,8 @@
 use actix_web::{web::Data, App, HttpServer};
-use std::io::Result;
+use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::fs;
-use toml;
-use serde::Deserialize;
+use std::io::Result;
 
 mod services;
 use services::update_ip;
@@ -33,8 +32,10 @@ struct ServerConfig {
 }
 
 fn read_config() -> Config {
-    let config_content = fs::read_to_string("/etc/auth-iptables/config.toml").expect("Error reading /etc/auth-iptables/config.toml");
-    let config: Config = toml::from_str(&config_content).expect("Error parsing /etc/auth-iptables/config.toml");
+    let config_content = fs::read_to_string("/etc/auth-iptables/config.toml")
+        .expect("Error reading /etc/auth-iptables/config.toml");
+    let config: Config =
+        toml::from_str(&config_content).expect("Error parsing /etc/auth-iptables/config.toml");
     config
 }
 
@@ -46,15 +47,19 @@ async fn main() -> Result<()> {
     }
 
     let pool = PgPoolOptions::new()
-    .max_connections(5)
-    .connect(&config.database.url)
-    .await
-    .expect("Error creating connection pool to the PostgreSQL server");
+        .max_connections(5)
+        .connect(&config.database.url)
+        .await
+        .expect("Error creating connection pool to the PostgreSQL server");
 
     HttpServer::new(move || {
         App::new()
-        .app_data(Data::new(AppState {db: pool.clone(), dest_port: config.server.dest_port, final_reject: config.server.final_reject}))
-        .service(update_ip)
+            .app_data(Data::new(AppState {
+                db: pool.clone(),
+                dest_port: config.server.dest_port,
+                final_reject: config.server.final_reject,
+            }))
+            .service(update_ip)
     })
     .bind(("127.0.0.1", config.server.port))?
     .run()
